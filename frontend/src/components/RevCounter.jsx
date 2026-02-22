@@ -99,12 +99,13 @@ function RevCounter() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 rounded-2xl shadow-lg overflow-hidden"
+      className="fixed bottom-4 z-50 rounded-2xl shadow-lg overflow-hidden"
       style={{
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-subtle)',
         width: '260px',
-        maxWidth: 'calc(100vw - 2rem)',
+        maxWidth: 'calc(100vw - 32px)',
+        right: '1rem',
         boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
       }}
     >
