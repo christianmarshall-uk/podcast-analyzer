@@ -28,7 +28,6 @@ function Home() {
   const [analysisRunning, setAnalysisRunning] = useState(false)
   const [digestRunning, setDigestRunning] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
-  const [logs, setLogs] = useState([])
   const [progress, setProgress] = useState(null)
 
   // ── Add podcast form ──────────────────────────────────────
@@ -51,8 +50,6 @@ function Home() {
   // ── Refs ──────────────────────────────────────────────────
   const pollingRef = useRef(null)
   const digestPollRef = useRef(null)
-  const seenSteps = useRef(new Set())
-  const logRef = useRef(null)
 
   // ─────────────────────────────────────────────────────────
   const fetchData = async () => {
@@ -100,11 +97,6 @@ function Home() {
     return () => window.removeEventListener('processingComplete', handler)
   }, [])
 
-  // Auto-scroll logs
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-  }, [logs])
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -114,11 +106,6 @@ function Home() {
   }, [])
 
   // ─────────────────────────────────────────────────────────
-  const addLog = (message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString()
-    setLogs(prev => [...prev.slice(-20), { timestamp, message, type }])
-  }
-
   const getSelectedIds = () => {
     if (selectedPodcasts.length === podcasts.length) return null
     return selectedPodcasts.length > 0 ? selectedPodcasts : null
@@ -128,23 +115,9 @@ function Home() {
     try {
       const res = await analysisApi.getProgress(episodeIds)
       setProgress(res.data)
-      res.data.episodes.forEach(ep => {
-        const key = `${ep.id}-${ep.step}-${ep.status}`
-        if (seenSteps.current.has(key)) return
-        seenSteps.current.add(key)
-        if (ep.status === 'processing' && ep.step) {
-          const labels = { starting: 'Starting', downloading: 'Downloading', transcribing: 'Transcribing', analyzing: 'Analysing' }
-          addLog(`${ep.title.substring(0, 30)}… ${labels[ep.step] || ep.step}`, 'processing')
-        } else if (ep.status === 'completed') {
-          addLog(`${ep.title.substring(0, 30)}… Done`, 'success')
-        } else if (ep.status === 'failed') {
-          addLog(`${ep.title.substring(0, 30)}… Failed`, 'error')
-        }
-      })
       if (res.data.counts.processing === 0 && episodeIds) {
         clearInterval(pollingRef.current)
         setIsPolling(false)
-        addLog('Complete', 'success')
         fetchData()
       }
     } catch { /* ignore transient */ }
@@ -153,22 +126,15 @@ function Home() {
   const handleAnalyze = async () => {
     setError('')
     setAnalysisRunning(true)
-    setLogs([])
-    seenSteps.current = new Set()
-    addLog('Starting…', 'info')
     try {
       const res = await analysisApi.batchAnalyze(period, getSelectedIds())
-      addLog(`${res.data.total_episodes} episode(s) found`, 'info')
       if (res.data.processing > 0) {
         setIsPolling(true)
         pollingRef.current = setInterval(() => pollProgress(res.data.episode_ids), 3000)
         await pollProgress(res.data.episode_ids)
-      } else if (res.data.completed > 0) {
-        addLog('All already analysed', 'success')
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to start analysis')
-      addLog(`Error: ${err.message}`, 'error')
     } finally {
       setAnalysisRunning(false)
     }
@@ -177,41 +143,28 @@ function Home() {
   const handleCreateDigest = async () => {
     setError('')
     setDigestRunning(true)
-    setLogs([])
-    seenSteps.current = new Set()
-    addLog('Creating digest…', 'info')
     try {
       const res = await digestApi.create(period, null, getSelectedIds())
       const digestId = res.data.id
-      addLog('Digest queued — watching progress…', 'info')
       setDigestRunning(false)
       setIsPolling(true)
-      let lastDetail = null
       digestPollRef.current = setInterval(async () => {
         try {
           const statusRes = await digestApi.get(digestId)
           const d = statusRes.data
-          if (d.processing_detail && d.processing_detail !== lastDetail) {
-            lastDetail = d.processing_detail
-            const icons = { collecting_episodes: '📂', generating_content: '🤖', generating_image: '🎨' }
-            addLog(`${icons[d.processing_step] || '⏳'} ${d.processing_detail}`, 'processing')
-          }
           if (d.status === 'completed') {
             clearInterval(digestPollRef.current)
             setIsPolling(false)
-            addLog('Digest complete!', 'success')
             fetchData()
           } else if (d.status === 'failed') {
             clearInterval(digestPollRef.current)
             setIsPolling(false)
-            addLog('Digest generation failed', 'error')
             setError('Digest generation failed')
           }
         } catch { /* ignore transient */ }
       }, 2000)
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create digest')
-      addLog(`Error: ${err.message}`, 'error')
       setDigestRunning(false)
     }
   }
@@ -278,7 +231,6 @@ function Home() {
     setIsPolling(false)
     setAnalysisRunning(false)
     setDigestRunning(false)
-    addLog('Stopped.', 'error')
   }
 
   const handleAddDiscovered = async (podcast) => {
@@ -336,7 +288,7 @@ function Home() {
             <button
               onClick={fetchData}
               className="btn btn-ghost p-1.5"
-              title="Refresh library"
+              title="Refresh podcast library and digest list"
               style={{ color: 'var(--text-muted)' }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -388,7 +340,7 @@ function Home() {
                       to={`/podcast/${p.id}`}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: 'var(--text-muted)' }}
-                      title="View details"
+                      title="View podcast episodes and analysis"
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-500)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
@@ -402,7 +354,7 @@ function Home() {
                       onClick={() => handleDeletePodcast(p.id)}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: 'var(--text-muted)' }}
-                      title="Delete podcast"
+                      title="Delete podcast and all its episodes and analyses"
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
@@ -642,7 +594,12 @@ function Home() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-3 flex-wrap">
-                <button onClick={handleAnalyze} disabled={isRunning} className="btn btn-secondary">
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isRunning}
+                  className="btn btn-secondary"
+                  title="Transcribe and analyse episodes for the selected period and podcasts using Whisper + Claude"
+                >
                   {analysisRunning ? <LoadingSpinner size="sm" /> : (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polygon points="5 3 19 12 5 21 5 3"/>
@@ -650,7 +607,12 @@ function Home() {
                   )}
                   Analyse Episodes
                 </button>
-                <button onClick={handleCreateDigest} disabled={isRunning} className="btn btn-primary">
+                <button
+                  onClick={handleCreateDigest}
+                  disabled={isRunning}
+                  className="btn btn-primary"
+                  title="Generate a cross-episode digest with themes, predictions, advice, and AI artwork for the selected period"
+                >
                   {digestRunning ? <LoadingSpinner size="sm" /> : (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
@@ -666,7 +628,7 @@ function Home() {
                         ? `Processing ${progress.counts.processing}…`
                         : 'Working…'}
                     </span>
-                    <button onClick={handleStop} className="btn btn-ghost" style={{ color: 'var(--error)' }}>
+                    <button onClick={handleStop} className="btn btn-ghost" title="Stop polling for updates (does not cancel running analysis)" style={{ color: 'var(--error)' }}>
                       ■ Stop
                     </button>
                   </>
@@ -674,30 +636,6 @@ function Home() {
               </div>
             </div>
           </div>
-
-          {/* ── Terminal log ────────────────────────────── */}
-          {logs.length > 0 && (
-            <div className="terminal animate-slide-up">
-              <div className="terminal-header">
-                <div className="terminal-dot" style={{ backgroundColor: '#ff5f57' }} />
-                <div className="terminal-dot" style={{ backgroundColor: '#febc2e' }} />
-                <div className="terminal-dot" style={{ backgroundColor: '#28c840' }} />
-                <span className="text-xs ml-2" style={{ color: 'rgba(255,255,255,0.35)' }}>analysis log</span>
-              </div>
-              <div ref={logRef} className="terminal-content">
-                {logs.map((log, i) => (
-                  <div key={i} style={{
-                    color: log.type === 'error' ? 'var(--error)'
-                      : log.type === 'success' ? 'var(--success)'
-                      : log.type === 'processing' ? '#7eb8f7'
-                      : '#888'
-                  }}>
-                    <span style={{ color: '#444' }}>[{log.timestamp}]</span> {log.message}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* ── Latest Digest ───────────────────────────── */}
           <div>

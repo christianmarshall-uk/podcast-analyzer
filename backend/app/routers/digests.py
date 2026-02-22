@@ -7,9 +7,7 @@ import re
 
 from ..database import get_db
 from .. import models, schemas
-from ..services.digest import DigestService
-
-ARTISTS = ["Kandinsky", "Monet", "Picasso", "van Gogh", "Dali", "Klee"]
+from ..services.digest import DigestService, ARTISTS
 
 router = APIRouter(prefix="/api/digests", tags=["digests"])
 
@@ -309,8 +307,11 @@ async def regenerate_image(digest_id: int, db: Session = Depends(get_db)):
     if not digest.image_prompt:
         raise HTTPException(status_code=400, detail="No image prompt available")
 
-    new_artist = random.choice(ARTISTS)
-    new_prompt = re.sub(r'style of [\w\s]+?[.,]', f'style of {new_artist}.', digest.image_prompt)
+    # Extract the scene description and rebuild the prompt with a fresh artist+style
+    scene_match = re.search(r'Scene:\s*(.+?)(?:\s*No text|$)', digest.image_prompt, re.DOTALL | re.IGNORECASE)
+    scene_desc = scene_match.group(1).strip() if scene_match else "an evocative landscape"
+    artist_name, artist_style = random.choice(ARTISTS)
+    new_prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {scene_desc}. No text, no words, no letters."
 
     service = DigestService()
     new_url = await service.generate_image_for_prompt(new_prompt)

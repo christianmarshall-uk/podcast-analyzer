@@ -13,6 +13,29 @@ from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
+ARTISTS = [
+    ("Wassily Kandinsky", "Bold geometric shapes, vibrant primary colours, hard-edged circles and diagonal lines, musical rhythm translated to pure abstract form, no representational imagery"),
+    ("Vincent van Gogh", "Thick swirling impasto brushstrokes, electric yellows and cobalt blues, the scene pulsing with emotional intensity, turbulent sky, heavy visible texture in every mark"),
+    ("Salvador Dali", "Hyper-realistic surrealist dreamscape, melting impossible objects, vast arid desert extending to infinity, photographic detail applied to absurd scenarios, deep chiaroscuro shadow"),
+    ("Katsushika Hokusai", "Japanese ukiyo-e woodblock print, bold flat black outlines, stylised ocean waves, graphic pattern fills, indigo and cream colour blocks, negative space as deliberate design element"),
+    ("Gustav Klimt", "Art Nouveau gold leaf, ornamental spiral patterns covering every surface, jewel-like mosaic tiles, Byzantine richness, figures dissolving into decorative abstraction, copper and burnished gold dominant"),
+    ("Jackson Pollock", "Abstract expressionist action painting, dense layered drips and splashes of industrial enamel, chaotic web of poured lines, raw canvas visible beneath, violent kinetic energy frozen in paint"),
+    ("Egon Schiele", "Viennese expressionism, raw angular contour lines, elongated distorted forms, sickly ochre and burnt sienna palette, scratchy gestural marks, claustrophobic psychological rawness"),
+    ("J.M.W. Turner", "Romantic sublime, atmosphere dissolving all solid forms into luminous vapour, golden apocalyptic light consuming the horizon, loose watercolour washes, barely legible forms emerging from radiant mist"),
+    ("Roy Lichtenstein", "Bold black comic-strip outlines, Ben-Day dot pattern fills, flat primary colours, dramatic close-up cropping, graphic mechanical reproduction aesthetic, ironic pop art sensibility"),
+    ("Edvard Munch", "Nordic expressionism, anxiety encoded in writhing undulating landscape lines, sickly green and blood-red sky, hollow-eyed figures, the horizon itself trembling with existential dread"),
+    ("Georges Seurat", "Pointillist technique, entire image built from thousands of tiny pure-colour dots, shimmering optical colour mixing, scientific colour theory applied methodically, rigid formal composition"),
+    ("Hieronymus Bosch", "Flemish Renaissance grotesque, teeming with impossible hybrid creatures, fantastical architectural structures, dense narrative detail in every corner, jewel-toned accents on earthy ground, medieval symbolism"),
+    ("Frida Kahlo", "Mexican folk art fused with surrealism, flat decorative style, dense tropical foliage, bold botanical colour, symbolic objects charged with intense personal meaning, naive directness"),
+    ("Mark Rothko", "Colour field abstraction, two or three luminous soft-edged rectangles of pure colour floating on canvas, emotional resonance through scale and hue relationship alone, meditative silence"),
+    ("Edward Hopper", "American realism, stark raking light cutting across architecture, profound urban loneliness, diner windows glowing at night, long afternoon shadows, psychological stillness"),
+    ("Utagawa Hiroshige", "Japanese woodblock landscape, flat colour planes divided by bold outlines, snow falling in diagonal lines, travellers tiny against monumental nature, deep indigo and terracotta palette"),
+    ("Paul Gauguin", "Post-impressionist palette, flat bold outlines, non-naturalistic saturated colour fills, figures simplified to monumental shapes, decorative pattern, tropical flora as charged backdrop"),
+    ("Umberto Boccioni", "Italian Futurism, dynamic force lines radiating outward, multiple simultaneous states of motion layered, fractured planes of colour, industrial energy and speed made visible"),
+    ("Alphonse Mucha", "Czech Art Nouveau, flowing curvilinear botanical borders, pearl and rose palette, mosaic-like halos, ornate floral frame surrounding the central image, decorative flat linework"),
+    ("Kazimir Malevich", "Russian Suprematism, pure geometric forms floating on white ground, black and red squares and rectangles, absolute reduction to essential form, zero reference to the natural world"),
+]
+
 
 @dataclass
 class DigestResult:
@@ -213,16 +236,8 @@ Respond ONLY with the JSON object."""
         if generate_image and result.get("image_description"):
             if progress_callback:
                 progress_callback("Selecting artist and composing image prompt...")
-            artists = [
-                ("Wassily Kandinsky", "Bold geometric shapes, vibrant primary colours, abstract compositions with circles and lines, musical rhythm in visual form"),
-                ("Claude Monet", "Soft impressionist brushstrokes, dappled light, delicate water reflections, luminous atmospheric haze, pastel colour harmonies"),
-                ("Pablo Picasso", "Cubist fragmented forms, multiple perspectives simultaneously, bold outlines, warm earth tones with bright accents"),
-                ("Vincent van Gogh", "Swirling expressive brushstrokes, vivid saturated colours, dynamic starry skies, thick impasto texture, emotional intensity"),
-                ("Salvador Dali", "Dreamlike surrealist landscape, melting forms, impossible architecture, hyper-detailed rendering, vast desert perspectives"),
-                ("Paul Klee", "Playful geometric abstractions, mosaic-like colour blocks, childlike whimsy, warm pastels, delicate line drawings")
-            ]
-            artist_name, artist_style = random.choice(artists)
-            image_prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {result.get('image_description')}. Soft pastel colour palette. No text, no words, no letters."
+            artist_name, artist_style = random.choice(ARTISTS)
+            image_prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {result.get('image_description')}. No text, no words, no letters."
             logger.info(f"Generating image with prompt: {image_prompt}")
             if progress_callback:
                 progress_callback(f"Painting in the style of {artist_name} — this takes ~30s...")
