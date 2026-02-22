@@ -244,6 +244,17 @@ async def batch_analyze(
     )
 
 
+@router.post("/analysis/reset-stuck")
+async def reset_stuck_episodes(db: Session = Depends(get_db)):
+    """Reset all episodes stuck in 'processing' back to 'pending'."""
+    stuck = db.query(models.Episode).filter(models.Episode.status == "processing").all()
+    for ep in stuck:
+        ep.status = "pending"
+        ep.processing_step = None
+    db.commit()
+    return {"reset": len(stuck)}
+
+
 @router.get("/episodes/{episode_id}/summary", response_model=schemas.Episode)
 async def get_episode_summary(episode_id: int, db: Session = Depends(get_db)):
     """Get the summary for an episode."""
@@ -365,6 +376,7 @@ async def get_analysis_progress(
     for ep in episodes:
         progress.append({
             "id": ep.id,
+            "podcast_id": ep.podcast_id,
             "title": ep.title[:60] + "..." if len(ep.title) > 60 else ep.title,
             "status": ep.status,
             "step": ep.processing_step,

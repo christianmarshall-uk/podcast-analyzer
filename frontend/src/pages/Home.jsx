@@ -93,6 +93,13 @@ function Home() {
     return () => clearInterval(interval)
   }, [latestDigest?.status])
 
+  // Refresh digest list when RevCounter signals processing is complete
+  useEffect(() => {
+    const handler = () => fetchData()
+    window.addEventListener('processingComplete', handler)
+    return () => window.removeEventListener('processingComplete', handler)
+  }, [])
+
   // Auto-scroll logs
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight

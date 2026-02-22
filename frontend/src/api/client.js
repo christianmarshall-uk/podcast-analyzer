@@ -79,7 +79,11 @@ export const analysisApi = {
   getProgress: (episodeIds = null) =>
     api.get('/analysis/progress', {
       params: episodeIds ? { episode_ids: episodeIds.join(',') } : {}
-    })
+    }),
+
+  // Reset all stuck (processing) episodes back to pending
+  resetStuck: () =>
+    api.post('/analysis/reset-stuck')
 }
 
 export const digestApi = {

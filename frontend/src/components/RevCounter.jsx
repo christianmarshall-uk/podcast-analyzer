@@ -13,10 +13,13 @@ function RevCounter() {
   const currentRef = useRef(0)
   const targetRef = useRef(0)
   const mounted = useRef(true)
+  const prevProcessingCount = useRef(0)
   const [displayLoad, setDisplayLoad] = useState(0)
   const [processing, setProcessing] = useState([])
+  const [failed, setFailed] = useState([])
   const [counts, setCounts] = useState({})
   const [minimised, setMinimised] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     mounted.current = true
@@ -29,8 +32,15 @@ function RevCounter() {
         const res = await analysisApi.getProgress()
         const proc = res.data?.counts?.processing ?? 0
         targetRef.current = Math.min(proc / 3, 1)
-        setProcessing(res.data?.episodes?.filter(e => e.status === 'processing') ?? [])
+        const processingEps = res.data?.episodes?.filter(e => e.status === 'processing') ?? []
+        const failedEps = res.data?.episodes?.filter(e => e.status === 'failed') ?? []
+        setProcessing(processingEps)
+        setFailed(failedEps)
         setCounts(res.data?.counts ?? {})
+        if (prevProcessingCount.current > 0 && proc === 0) {
+          window.dispatchEvent(new CustomEvent('processingComplete'))
+        }
+        prevProcessingCount.current = proc
       } catch {
         // ignore transient errors
       }
@@ -39,6 +49,17 @@ function RevCounter() {
     const interval = setInterval(poll, 3000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleResetStuck = async () => {
+    setResetting(true)
+    try {
+      await analysisApi.resetStuck()
+    } catch {
+      // ignore
+    } finally {
+      setResetting(false)
+    }
+  }
 
   useEffect(() => {
     const tick = () => {
@@ -71,7 +92,8 @@ function RevCounter() {
   const activeEndDeg = startDeg + displayLoad * sweepDeg
   const needlePt = pt(activeEndDeg, r - 3)
   const arcColor = displayLoad < 0.4 ? '#3b82f6' : displayLoad < 0.7 ? '#e8a317' : '#d95050'
-  const active = displayLoad > 0.05
+  const hasStuck = processing.some(ep => ep.step === null)
+  const active = displayLoad > 0.05 || failed.length > 0
 
   if (!active) return null
 
@@ -81,7 +103,8 @@ function RevCounter() {
       style={{
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-subtle)',
-        width: '280px',
+        width: '260px',
+        maxWidth: 'calc(100vw - 2rem)',
         boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
       }}
     >
@@ -103,12 +126,17 @@ function RevCounter() {
 
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {processing.length} episode{processing.length !== 1 ? 's' : ''} processing
+            {processing.length > 0
+              ? `${processing.length} episode${processing.length !== 1 ? 's' : ''} processing`
+              : failed.length > 0
+              ? `${failed.length} episode${failed.length !== 1 ? 's' : ''} failed`
+              : 'Processing'}
           </p>
-          {counts.completed > 0 && (
+          {(counts.completed > 0 || counts.failed > 0) && (
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {counts.completed} done
-              {counts.failed > 0 && `, ${counts.failed} failed`}
+              {counts.completed > 0 && `${counts.completed} done`}
+              {counts.completed > 0 && counts.failed > 0 && ', '}
+              {counts.failed > 0 && `${counts.failed} failed`}
             </p>
           )}
         </div>
@@ -125,20 +153,58 @@ function RevCounter() {
       {/* Episode list */}
       {!minimised && (
         <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
-          {processing.length === 0 ? (
+          {processing.length === 0 && failed.length === 0 ? (
             <p className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>Wrapping up…</p>
           ) : (
-            processing.map(ep => (
-              <div key={ep.id} className="flex items-start gap-2.5 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <div className="indicator indicator-processing shrink-0" style={{ width: '6px', height: '6px', marginTop: '4px' }} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-primary)' }}>{ep.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: arcColor }}>
-                    {ep.step ? STEP_LABELS[ep.step] || ep.step : 'Queued'}
-                  </p>
+            <>
+              {processing.map(ep => (
+                <div key={ep.id} className="flex items-start gap-2.5 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div className="indicator indicator-processing shrink-0" style={{ width: '6px', height: '6px', marginTop: '4px' }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-primary)' }}>{ep.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: ep.step ? arcColor : 'var(--text-muted)' }}>
+                      {ep.step ? STEP_LABELS[ep.step] || ep.step : 'Queued'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {failed.map(ep => (
+                <div key={ep.id} className="flex items-start gap-2.5 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div className="indicator indicator-error shrink-0" style={{ width: '6px', height: '6px', marginTop: '4px' }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-primary)' }}>{ep.title}</p>
+                    {ep.podcast_id ? (
+                      <a
+                        href={`/podcast/${ep.podcast_id}`}
+                        className="text-xs mt-0.5 hover:underline"
+                        style={{ color: 'var(--accent-500)' }}
+                      >
+                        Retry on podcast page
+                      </a>
+                    ) : (
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--error)' }}>Failed</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          {hasStuck && (
+            <div className="px-3 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <button
+                onClick={handleResetStuck}
+                disabled={resetting}
+                className="w-full text-xs py-1.5 px-3 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: 'var(--error-muted)',
+                  color: 'var(--error)',
+                  border: '1px solid var(--error)',
+                  opacity: resetting ? 0.6 : 1,
+                }}
+              >
+                {resetting ? 'Resetting…' : 'Reset stuck episodes'}
+              </button>
+            </div>
           )}
         </div>
       )}

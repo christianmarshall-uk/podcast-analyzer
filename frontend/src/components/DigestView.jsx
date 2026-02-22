@@ -7,16 +7,21 @@ function DigestView({ digest }) {
   const [showEpisodes, setShowEpisodes] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
   const [liveImageUrl, setLiveImageUrl] = useState(digest?.image_url)
+  const [liveImagePrompt, setLiveImagePrompt] = useState(digest?.image_prompt)
   const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
 
   const handleRefreshImage = async () => {
     if (refreshing) return
     setRefreshing(true)
+    setRefreshError(false)
     try {
       const res = await digestApi.regenerateImage(digest.id)
       setLiveImageUrl(res.data.image_url)
+      setLiveImagePrompt(res.data.image_prompt)
     } catch {
-      // ignore
+      setRefreshError(true)
+      setTimeout(() => setRefreshError(false), 3000)
     } finally {
       setRefreshing(false)
     }
@@ -113,21 +118,21 @@ function DigestView({ digest }) {
   }
 
   // Extract artist name from image prompt
-  const getArtistInfo = () => {
-    if (!digest.image_prompt) return null
-    const artistMatch = digest.image_prompt.match(/style of (\w[\w\s]+?)[\.,]/i)
+  const getArtistInfo = (prompt) => {
+    if (!prompt) return null
+    const artistMatch = prompt.match(/style of (\w[\w\s]+?)[\.,]/i)
     return artistMatch ? artistMatch[1].trim() : null
   }
 
   // Extract scene description from image prompt
-  const getSceneDescription = () => {
-    if (!digest.image_prompt) return null
-    const sceneMatch = digest.image_prompt.match(/Scene:\s*(.+?)(?:\.|$)/i)
+  const getSceneDescription = (prompt) => {
+    if (!prompt) return null
+    const sceneMatch = prompt.match(/Scene:\s*(.+?)(?:\.|$)/i)
     return sceneMatch ? sceneMatch[1].trim() : null
   }
 
-  const artist = getArtistInfo()
-  const scene = getSceneDescription()
+  const artist = getArtistInfo(liveImagePrompt)
+  const scene = getSceneDescription(liveImagePrompt)
 
   const sectionConfig = [
     {
@@ -200,9 +205,9 @@ function DigestView({ digest }) {
               title="Regenerate artwork with new artist style"
               className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.9)',
+                backgroundColor: refreshError ? 'rgba(220,38,38,0.9)' : 'rgba(255,255,255,0.9)',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                color: 'var(--accent-500)',
+                color: refreshError ? 'white' : 'var(--accent-500)',
                 zIndex: 10,
               }}
             >

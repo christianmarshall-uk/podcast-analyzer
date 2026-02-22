@@ -47,7 +47,7 @@ function DigestDetail() {
         <div className="indicator indicator-error mx-auto mb-3" />
         <p style={{ color: 'var(--error)' }}>{error || 'Digest not found'}</p>
         <Link
-          to="/digests"
+          to="/"
           className="btn btn-ghost mt-4 inline-flex"
           style={{ color: 'var(--accent-500)' }}
         >
@@ -60,7 +60,7 @@ function DigestDetail() {
   return (
     <div className="animate-fade-in">
       <Link
-        to="/digests"
+        to="/"
         className="inline-flex items-center gap-2 mb-6 text-sm font-medium transition-colors hover:underline"
         style={{ color: 'var(--accent-500)' }}
       >
