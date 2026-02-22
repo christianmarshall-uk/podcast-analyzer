@@ -218,9 +218,10 @@ function DigestView({ digest }) {
               )}
             </button>
             <div className="absolute inset-0" style={{
-              background: 'linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 40%, transparent 60%)'
+              background: 'linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 40%, transparent 60%)',
+              pointerEvents: 'none'
             }} />
-            <div className="absolute bottom-0 left-0 right-0 p-6">
+            <div className="absolute bottom-0 left-0 right-0 p-6" style={{ zIndex: 1 }}>
               <h1 className="heading-xl" style={{ color: 'var(--text-primary)' }}>{digest.title}</h1>
               <div className="flex items-center gap-3 mt-2">
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
