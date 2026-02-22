@@ -73,14 +73,15 @@ function App() {
               </div>
             </Link>
 
-            {/* Right side: waveform decoration + RevCounter */}
+            {/* Right side: waveform decoration */}
             <div className="flex items-center gap-4">
               <Waveform bars={5} />
-              <RevCounter />
             </div>
           </div>
         </div>
       </header>
+
+      <RevCounter />
 
       {/* Main Content */}
       <main className="flex-1">
