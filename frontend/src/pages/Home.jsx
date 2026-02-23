@@ -17,6 +17,7 @@ const PERIODS = [
 function Home() {
   // ── Data ──────────────────────────────────────────────────
   const [podcasts, setPodcasts] = useState([])
+  const [recentEpisodes, setRecentEpisodes] = useState([])
   const [digests, setDigests] = useState([])
   const [latestDigest, setLatestDigest] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -54,12 +55,14 @@ function Home() {
   // ─────────────────────────────────────────────────────────
   const fetchData = async () => {
     try {
-      const [podcastsRes, digestsRes] = await Promise.all([
+      const [podcastsRes, digestsRes, episodesRes] = await Promise.all([
         podcastApi.list(),
         digestApi.list(0, 20),
+        analysisApi.listEpisodes({ period: 'latest', status_filter: 'completed', limit: 40 }),
       ])
       setPodcasts(podcastsRes.data)
       setDigests(digestsRes.data)
+      setRecentEpisodes(episodesRes.data)
       if (digestsRes.data.length > 0) {
         const full = await digestApi.get(digestsRes.data[0].id)
         setLatestDigest(full.data)
@@ -90,7 +93,7 @@ function Home() {
     return () => clearInterval(interval)
   }, [latestDigest?.status])
 
-  // Refresh digest list when RevCounter signals processing is complete
+  // Refresh when RevCounter signals processing is complete
   useEffect(() => {
     const handler = () => fetchData()
     window.addEventListener('processingComplete', handler)
@@ -255,6 +258,9 @@ function Home() {
   const previousDigests = digests.slice(1)
   const displayedPrevious = showAllDigests ? previousDigests : previousDigests.slice(0, 4)
 
+  // Build podcast lookup for episode list
+  const podcastMap = Object.fromEntries(podcasts.map(p => [p.id, p]))
+
   // ─────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -264,22 +270,24 @@ function Home() {
     )
   }
 
+  const sidebarStyle = {
+    flexShrink: 0,
+    position: 'sticky',
+    top: '56px',
+    height: 'calc(100vh - 56px)',
+    overflowY: 'auto',
+  }
+
   return (
     <div className="flex" style={{ minHeight: 'calc(100vh - 56px)', alignItems: 'flex-start' }}>
 
-      {/* ── LEFT SIDEBAR ─────────────────────────────────── */}
-      <aside
-        style={{
-          width: '288px',
-          flexShrink: 0,
-          position: 'sticky',
-          top: '56px',
-          height: 'calc(100vh - 56px)',
-          overflowY: 'auto',
-          borderRight: '1px solid var(--border-subtle)',
-          backgroundColor: 'var(--bg-secondary)',
-        }}
-      >
+      {/* ── LEFT SIDEBAR — library + episodes ─────────────── */}
+      <aside style={{
+        ...sidebarStyle,
+        width: '272px',
+        borderRight: '1px solid var(--border-subtle)',
+        backgroundColor: 'var(--bg-secondary)',
+      }}>
         <div className="p-4 space-y-5">
 
           {/* Library header */}
@@ -313,20 +321,18 @@ function Home() {
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  {/* Thumbnail */}
                   {p.image_url ? (
-                    <img src={p.image_url} alt={p.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                    <img src={p.image_url} alt={p.title} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
+                    <div className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
                         <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                       </svg>
                     </div>
                   )}
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{p.title}</p>
+                    <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{p.title}</p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {p.episode_count} ep
                       {p.analyzed_count > 0 && (
@@ -334,7 +340,6 @@ function Home() {
                       )}
                     </p>
                   </div>
-                  {/* Actions: link + delete */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Link
                       to={`/podcast/${p.id}`}
@@ -344,7 +349,7 @@ function Home() {
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-500)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                         <polyline points="15 3 21 3 21 9"/>
                         <line x1="10" y1="14" x2="21" y2="3"/>
@@ -358,7 +363,7 @@ function Home() {
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                       </svg>
@@ -412,7 +417,39 @@ function Home() {
             )}
           </div>
 
-          {/* Find Podcasts — keyword search + similar */}
+          {/* Recent Episodes */}
+          {recentEpisodes.length > 0 && (
+            <div>
+              <div className="divider mb-3" />
+              <span className="text-micro block mb-2" style={{ color: 'var(--text-muted)' }}>RECENT EPISODES</span>
+              <div className="space-y-0.5">
+                {recentEpisodes.map(ep => {
+                  const podcast = podcastMap[ep.podcast_id]
+                  return (
+                    <Link
+                      key={ep.id}
+                      to={`/podcast/${ep.podcast_id}?episode=${ep.id}`}
+                      className="block p-2 rounded-lg transition-colors"
+                      style={{ color: 'inherit' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <p className="text-xs font-medium leading-snug truncate" style={{ color: 'var(--text-primary)' }}>
+                        {ep.title}
+                      </p>
+                      {podcast && (
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                          {podcast.title}
+                        </p>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Find Podcasts */}
           <div>
             <div className="divider mb-4" />
             <span className="text-micro block mb-3" style={{ color: 'var(--text-muted)' }}>FIND PODCASTS</span>
@@ -462,10 +499,10 @@ function Home() {
                       style={{ backgroundColor: isAdded ? 'var(--success-muted)' : 'var(--bg-tertiary)' }}
                     >
                       {podcast.image_url ? (
-                        <img src={podcast.image_url} alt={podcast.title} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        <img src={podcast.image_url} alt={podcast.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
+                        <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
                             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
                             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                           </svg>
@@ -480,7 +517,7 @@ function Home() {
                       <button
                         onClick={() => handleAddDiscovered(podcast)}
                         disabled={isAdded || isAdding}
-                        className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
                         style={{
                           backgroundColor: isAdded ? 'var(--success-muted)' : 'var(--accent-50)',
                           color: isAdded ? 'var(--success)' : 'var(--accent-500)',
@@ -490,11 +527,11 @@ function Home() {
                         {isAdding ? (
                           <LoadingSpinner size="sm" />
                         ) : isAdded ? (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <polyline points="20 6 9 17 4 12"/>
                           </svg>
                         ) : (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <line x1="12" y1="5" x2="12" y2="19"/>
                             <line x1="5" y1="12" x2="19" y2="12"/>
                           </svg>
@@ -515,9 +552,9 @@ function Home() {
         </div>
       </aside>
 
-      {/* ── RIGHT MAIN ────────────────────────────────────── */}
+      {/* ── CENTRE — digests ──────────────────────────────── */}
       <div className="flex-1 min-w-0" style={{ backgroundColor: 'var(--bg-deep)' }}>
-        <div className="p-6 space-y-6" style={{ maxWidth: '860px' }}>
+        <div className="p-6 space-y-6" style={{ maxWidth: '820px' }}>
 
           {/* Error banner */}
           {error && (
@@ -535,109 +572,7 @@ function Home() {
             </div>
           )}
 
-          {/* ── Analysis Controls ───────────────────────── */}
-          <div>
-            <h2 className="text-micro mb-3" style={{ color: 'var(--text-muted)' }}>ANALYSIS CONTROLS</h2>
-            <div className="panel p-4 space-y-3">
-
-              {/* Period selector */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Period:</span>
-                <div className="flex items-center gap-0.5 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-deep)' }}>
-                  {PERIODS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setPeriod(opt.value)}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
-                      style={{
-                        backgroundColor: period === opt.value ? 'var(--bg-elevated)' : 'transparent',
-                        color: period === opt.value ? 'var(--accent-500)' : 'var(--text-muted)',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Podcast selector */}
-              {podcasts.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Podcasts:</span>
-                  {podcasts.map(p => (
-                    <label key={p.id} className="cursor-pointer">
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all"
-                        style={{
-                          backgroundColor: selectedPodcasts.includes(p.id) ? 'var(--accent-50)' : 'var(--bg-tertiary)',
-                          color: selectedPodcasts.includes(p.id) ? 'var(--accent-600)' : 'var(--text-secondary)',
-                          border: `1px solid ${selectedPodcasts.includes(p.id) ? 'var(--border-accent)' : 'var(--border-subtle)'}`,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedPodcasts.includes(p.id)}
-                          onChange={() => togglePodcast(p.id)}
-                          className="sr-only"
-                        />
-                        {selectedPodcasts.includes(p.id) && (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                        )}
-                        {p.title}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={handleAnalyze}
-                  disabled={isRunning}
-                  className="btn btn-secondary"
-                  title="Transcribe and analyse episodes for the selected period and podcasts using Whisper + Claude"
-                >
-                  {analysisRunning ? <LoadingSpinner size="sm" /> : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="5 3 19 12 5 21 5 3"/>
-                    </svg>
-                  )}
-                  Analyse Episodes
-                </button>
-                <button
-                  onClick={handleCreateDigest}
-                  disabled={isRunning}
-                  className="btn btn-primary"
-                  title="Generate a cross-episode digest with themes, predictions, advice, and AI artwork for the selected period"
-                >
-                  {digestRunning ? <LoadingSpinner size="sm" /> : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
-                    </svg>
-                  )}
-                  Create Digest
-                </button>
-                {isPolling && (
-                  <>
-                    <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--processing)' }}>
-                      <div className="indicator indicator-processing" style={{ width: '6px', height: '6px' }} />
-                      {progress?.counts?.processing
-                        ? `Processing ${progress.counts.processing}…`
-                        : 'Working…'}
-                    </span>
-                    <button onClick={handleStop} className="btn btn-ghost" title="Stop polling for updates (does not cancel running analysis)" style={{ color: 'var(--error)' }}>
-                      ■ Stop
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Latest Digest ───────────────────────────── */}
+          {/* Latest Digest */}
           <div>
             <div className="flex items-center gap-3 mb-4">
               <h2 className="heading-md">Latest Digest</h2>
@@ -653,12 +588,12 @@ function Home() {
                   </svg>
                 </div>
                 <p className="heading-md mb-2">No digests yet</p>
-                <p className="text-body">Select a period above and click "Create Digest" to generate cross-episode insights</p>
+                <p className="text-body">Select a period in the sidebar and click "Create Digest"</p>
               </div>
             )}
           </div>
 
-          {/* ── Previous Digests ────────────────────────── */}
+          {/* Previous Digests */}
           {previousDigests.length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -691,6 +626,128 @@ function Home() {
 
         </div>
       </div>
+
+      {/* ── RIGHT SIDEBAR — analysis controls ─────────────── */}
+      <aside style={{
+        ...sidebarStyle,
+        width: '252px',
+        borderLeft: '1px solid var(--border-subtle)',
+        backgroundColor: 'var(--bg-secondary)',
+      }}>
+        <div className="p-4 space-y-4">
+
+          <span className="text-micro block pt-1" style={{ color: 'var(--text-muted)' }}>ANALYSIS</span>
+
+          {/* Period selector */}
+          <div>
+            <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Period</p>
+            <div className="grid grid-cols-3 gap-1">
+              {PERIODS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPeriod(opt.value)}
+                  className="py-1.5 rounded-md text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: period === opt.value ? 'var(--accent-500)' : 'var(--bg-tertiary)',
+                    color: period === opt.value ? 'white' : 'var(--text-muted)',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Podcast filter */}
+          {podcasts.length > 0 && (
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Podcasts</p>
+              <div className="space-y-1">
+                {podcasts.map(p => {
+                  const on = selectedPodcasts.includes(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => togglePodcast(p.id)}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all text-left"
+                      style={{
+                        backgroundColor: on ? 'var(--accent-50)' : 'transparent',
+                        color: on ? 'var(--accent-600)' : 'var(--text-secondary)',
+                        border: `1px solid ${on ? 'var(--border-accent)' : 'transparent'}`,
+                      }}
+                    >
+                      <span
+                        className="shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center"
+                        style={{ backgroundColor: on ? 'var(--accent-500)' : 'var(--border-subtle)', border: on ? 'none' : '1px solid var(--border-subtle)' }}
+                      >
+                        {on && (
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </span>
+                      <span className="truncate">{p.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="divider" />
+
+          {/* Action buttons */}
+          <div className="space-y-2">
+            <button
+              onClick={handleAnalyze}
+              disabled={isRunning}
+              className="w-full btn btn-secondary text-sm"
+              title="Transcribe and analyse episodes for the selected period and podcasts using Whisper + Claude"
+            >
+              {analysisRunning ? <LoadingSpinner size="sm" /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              )}
+              Analyse Episodes
+            </button>
+            <button
+              onClick={handleCreateDigest}
+              disabled={isRunning}
+              className="w-full btn btn-primary text-sm"
+              title="Generate a cross-episode digest with themes, predictions, advice, and AI artwork for the selected period"
+            >
+              {digestRunning ? <LoadingSpinner size="sm" /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+                </svg>
+              )}
+              Create Digest
+            </button>
+          </div>
+
+          {/* Status */}
+          {isPolling && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--processing)' }}>
+                <div className="indicator indicator-processing" style={{ width: '6px', height: '6px', flexShrink: 0 }} />
+                {progress?.counts?.processing
+                  ? `Processing ${progress.counts.processing}…`
+                  : 'Working…'}
+              </div>
+              <button
+                onClick={handleStop}
+                className="w-full btn btn-ghost text-xs"
+                title="Stop polling for updates (does not cancel running analysis)"
+                style={{ color: 'var(--error)' }}
+              >
+                ■ Stop watching
+              </button>
+            </div>
+          )}
+
+        </div>
+      </aside>
 
     </div>
   )
