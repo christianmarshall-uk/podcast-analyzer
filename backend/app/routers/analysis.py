@@ -246,8 +246,10 @@ async def batch_analyze(
 
 @router.post("/analysis/reset-stuck")
 async def reset_stuck_episodes(db: Session = Depends(get_db)):
-    """Reset all episodes stuck in 'processing' back to 'pending'."""
-    stuck = db.query(models.Episode).filter(models.Episode.status == "processing").all()
+    """Reset stuck processing and failed episodes back to pending."""
+    stuck = db.query(models.Episode).filter(
+        models.Episode.status.in_(["processing", "failed"])
+    ).all()
     for ep in stuck:
         ep.status = "pending"
         ep.processing_step = None

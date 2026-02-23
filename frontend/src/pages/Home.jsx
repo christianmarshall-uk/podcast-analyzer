@@ -58,7 +58,7 @@ function Home() {
       const [podcastsRes, digestsRes, episodesRes] = await Promise.all([
         podcastApi.list(),
         digestApi.list(0, 20),
-        analysisApi.listEpisodes({ period: 'latest', status_filter: 'completed', limit: 40 }),
+        analysisApi.listEpisodes({ period: 'latest', status_filter: 'completed', limit: 200 }),
       ])
       setPodcasts(podcastsRes.data)
       setDigests(digestsRes.data)

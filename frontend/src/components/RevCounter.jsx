@@ -92,7 +92,7 @@ function RevCounter() {
   const activeEndDeg = startDeg + displayLoad * sweepDeg
   const needlePt = pt(activeEndDeg, r - 3)
   const arcColor = displayLoad < 0.4 ? '#3b82f6' : displayLoad < 0.7 ? '#e8a317' : '#d95050'
-  const hasStuck = processing.some(ep => ep.step === null)
+  const hasStuck = processing.some(ep => ep.step === null) || failed.length > 0
   const active = displayLoad > 0.05 || failed.length > 0
 
   if (!active) return null
@@ -203,7 +203,7 @@ function RevCounter() {
                   opacity: resetting ? 0.6 : 1,
                 }}
               >
-                {resetting ? 'Resetting…' : 'Reset stuck episodes'}
+                {resetting ? 'Resetting…' : 'Reset stuck & failed → pending'}
               </button>
             </div>
           )}
