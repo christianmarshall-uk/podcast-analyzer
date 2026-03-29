@@ -272,7 +272,7 @@ Respond ONLY with the JSON object."""
             if progress_callback:
                 progress_callback("Selecting artist and composing image prompt...")
             artist_name, artist_style = random.choice(ARTISTS)
-            image_prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {result.get('image_description')}. No text, no words, no letters."
+            image_prompt = f"Fine art painting in the style of {artist_name}. {artist_style}. Scene: {result.get('image_description')}. Painted artwork, not a photograph. No text, no words, no letters, no numbers."
             logger.info(f"Generating image with prompt: {image_prompt}")
             if progress_callback:
                 progress_callback(f"Painting in the style of {artist_name} — this takes ~30s...")

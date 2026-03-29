@@ -295,7 +295,7 @@ async def generate_podcast_artwork(podcast_id: int, db: Session = Depends(get_db
     available_topics = [t for t in TOPICS if t != last_topic]
     topic = random.choice(available_topics)
 
-    prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {topic}. No text, no words, no letters."
+    prompt = f"Fine art painting in the style of {artist_name}. {artist_style}. Scene: {topic}. Painted artwork, not a photograph. No text, no words, no letters, no numbers."
     logger.info(f"Generating artwork: artist={artist_name}, topic={topic[:60]}...")
 
     service = DigestService()

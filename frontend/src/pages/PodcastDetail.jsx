@@ -76,6 +76,7 @@ function PodcastDetail() {
     try {
       const res = await podcastApi.generateArtwork(id)
       setAiImageUrl(res.data.ai_image_url)
+      setPodcast(prev => prev ? { ...prev, ai_image_prompt: res.data.ai_image_prompt } : prev)
     } catch {
       setArtworkError(true)
       setTimeout(() => setArtworkError(false), 3000)
@@ -94,6 +95,10 @@ function PodcastDetail() {
       setError(err.response?.data?.detail || 'Failed to start analysis')
     }
   }
+
+  // Extract artist name from stored prompt
+  const artworkArtistMatch = podcast?.ai_image_prompt?.match(/in the style of ([^.]+)\./)
+  const artworkArtist = artworkArtistMatch ? artworkArtistMatch[1].trim() : null
 
   if (loading) {
     return (
@@ -149,7 +154,7 @@ function PodcastDetail() {
             <button
               onClick={handleGenerateArtwork}
               disabled={generatingArtwork}
-              title="Regenerate Banksy artwork"
+              title={artworkArtist ? `Regenerate — currently ${artworkArtist}` : 'Generate artwork'}
               className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all"
               style={{
                 backgroundColor: artworkError ? 'rgba(220,38,38,0.9)' : 'rgba(255,255,255,0.9)',
@@ -176,7 +181,7 @@ function PodcastDetail() {
                 </h1>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="tag text-xs">{podcast.episodes?.length || 0} episodes</span>
-                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>Banksy</span>
+                  {artworkArtist && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{artworkArtist}</span>}
                 </div>
               </div>
             </div>
@@ -207,7 +212,7 @@ function PodcastDetail() {
                         <polyline points="21 15 16 10 5 21"/>
                       </svg>
                     )}
-                    {generatingArtwork ? 'Generating…' : 'Generate Banksy artwork'}
+                    {generatingArtwork ? 'Generating…' : 'Generate artwork'}
                   </button>
                   {artworkError && <span className="text-xs" style={{ color: 'var(--error)' }}>Failed, try again</span>}
                 </div>
