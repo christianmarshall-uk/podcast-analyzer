@@ -73,8 +73,8 @@ function App() {
               </div>
             </Link>
 
-            {/* Right side: waveform decoration */}
-            <div className="flex items-center gap-4">
+            {/* Right side: waveform decoration — hidden on mobile */}
+            <div className="hidden md:flex items-center gap-4">
               <Waveform bars={5} />
             </div>
           </div>

@@ -65,6 +65,7 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -74,6 +75,25 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* iOS momentum scrolling for scrollable containers */
+.overflow-y-auto,
+aside {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure touch targets meet Apple's 44pt minimum */
+@media (max-width: 767px) {
+  .btn {
+    min-height: 44px;
+  }
+  input[type="text"],
+  input[type="search"] {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
 }
 
 ::selection {

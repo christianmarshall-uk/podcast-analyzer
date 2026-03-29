@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { Link } from 'react-router-dom'
 import { podcastApi, analysisApi, digestApi } from '../api/client'
 import DigestView from '../components/DigestView'
@@ -8,9 +9,9 @@ import LoadingSpinner from '../components/LoadingSpinner'
 const PERIODS = [
   { value: 'latest', label: 'Latest' },
   { value: 'day', label: '24h' },
+  { value: '2days', label: '48h' },
   { value: 'week', label: 'Week' },
   { value: '2weeks', label: '2W' },
-  { value: '3weeks', label: '3W' },
   { value: 'month', label: 'Month' },
 ]
 
@@ -35,6 +36,8 @@ function Home() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [feedUrl, setFeedUrl] = useState('')
   const [addingPodcast, setAddingPodcast] = useState(false)
+  const [addSearchResults, setAddSearchResults] = useState([])
+  const [addSearchLoading, setAddSearchLoading] = useState(false)
 
   // ── Discover / Search ─────────────────────────────────────
   const [discoverResults, setDiscoverResults] = useState([])
@@ -48,9 +51,15 @@ function Home() {
   // ── Previous digests ──────────────────────────────────────
   const [showAllDigests, setShowAllDigests] = useState(false)
 
+  // ── Mobile layout ─────────────────────────────────────────
+  const isMobile = useIsMobile()
+  const [mobileLibOpen, setMobileLibOpen] = useState(false)
+  const [mobileCtrlOpen, setMobileCtrlOpen] = useState(false)
+
   // ── Refs ──────────────────────────────────────────────────
   const pollingRef = useRef(null)
   const digestPollRef = useRef(null)
+  const addSearchTimerRef = useRef(null)
 
   // ─────────────────────────────────────────────────────────
   const fetchData = async () => {
@@ -105,6 +114,7 @@ function Home() {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
       if (digestPollRef.current) clearInterval(digestPollRef.current)
+      if (addSearchTimerRef.current) clearTimeout(addSearchTimerRef.current)
     }
   }, [])
 
@@ -180,9 +190,41 @@ function Home() {
       await podcastApi.addFromFeed(feedUrl)
       setFeedUrl('')
       setShowAddForm(false)
+      setAddSearchResults([])
       await fetchData()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to add podcast')
+    } finally {
+      setAddingPodcast(false)
+    }
+  }
+
+  const handleFeedUrlChange = (e) => {
+    const val = e.target.value
+    setFeedUrl(val)
+    if (addSearchTimerRef.current) clearTimeout(addSearchTimerRef.current)
+    const isUrl = val.startsWith('http://') || val.startsWith('https://')
+    if (!val.trim() || isUrl) { setAddSearchResults([]); return }
+    addSearchTimerRef.current = setTimeout(async () => {
+      setAddSearchLoading(true)
+      try {
+        const res = await podcastApi.search(val.trim())
+        setAddSearchResults(res.data.slice(0, 5))
+      } catch { setAddSearchResults([]) }
+      finally { setAddSearchLoading(false) }
+    }, 400)
+  }
+
+  const handleAddFromSearch = async (podcast) => {
+    setAddingPodcast(true)
+    try {
+      await podcastApi.addFromFeed(podcast.feed_url)
+      setFeedUrl('')
+      setShowAddForm(false)
+      setAddSearchResults([])
+      await fetchData()
+    } catch (err) {
+      setError(err.response?.data?.detail || `Failed to add "${podcast.title}"`)
     } finally {
       setAddingPodcast(false)
     }
@@ -278,17 +320,45 @@ function Home() {
     overflowY: 'auto',
   }
 
+  const mobilePanelToggleStyle = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 16px',
+    background: 'none',
+    border: 'none',
+    borderBottom: '1px solid var(--border-subtle)',
+    cursor: 'pointer',
+  }
+
   return (
-    <div className="flex" style={{ minHeight: 'calc(100vh - 56px)', alignItems: 'flex-start' }}>
+    <div
+      className={isMobile ? 'flex flex-col' : 'flex'}
+      style={isMobile ? { minHeight: 'calc(100vh - 56px)' } : { minHeight: 'calc(100vh - 56px)', alignItems: 'flex-start' }}
+    >
 
       {/* ── LEFT SIDEBAR — library + episodes ─────────────── */}
-      <aside style={{
+      <aside style={isMobile ? {
+        order: 3,
+        width: '100%',
+        borderTop: '1px solid var(--border-subtle)',
+        backgroundColor: 'var(--bg-secondary)',
+      } : {
         ...sidebarStyle,
         width: '272px',
         borderRight: '1px solid var(--border-subtle)',
         backgroundColor: 'var(--bg-secondary)',
       }}>
-        <div className="p-4 space-y-5">
+        {isMobile && (
+          <button style={mobilePanelToggleStyle} onClick={() => setMobileLibOpen(o => !o)}>
+            <span className="text-micro">YOUR LIBRARY</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)', transform: mobileLibOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        )}
+        <div className="p-4 space-y-5" style={isMobile && !mobileLibOpen ? { display: 'none' } : {}}>
 
           {/* Library header */}
           <div className="flex items-center justify-between pt-1">
@@ -374,82 +444,7 @@ function Home() {
             </div>
           )}
 
-          {/* Add podcast */}
-          <div>
-            {!showAddForm ? (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="w-full flex items-center gap-2 p-2.5 rounded-xl text-sm font-medium transition-colors"
-                style={{ color: 'var(--accent-500)', backgroundColor: 'var(--accent-50)' }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--accent-100)'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-50)'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Add podcast from RSS
-              </button>
-            ) : (
-              <form onSubmit={handleAddPodcast} className="space-y-2 animate-fade-in">
-                <input
-                  type="url"
-                  value={feedUrl}
-                  onChange={e => setFeedUrl(e.target.value)}
-                  placeholder="Paste RSS feed URL…"
-                  className="input text-sm"
-                  autoFocus
-                  disabled={addingPodcast}
-                />
-                <div className="flex gap-2">
-                  <button type="submit" disabled={addingPodcast} className="btn btn-primary text-sm flex-1">
-                    {addingPodcast ? <LoadingSpinner size="sm" /> : 'Add'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddForm(false); setFeedUrl('') }}
-                    className="btn btn-ghost text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-
-          {/* Recent Episodes */}
-          {recentEpisodes.length > 0 && (
-            <div>
-              <div className="divider mb-3" />
-              <span className="text-micro block mb-2" style={{ color: 'var(--text-muted)' }}>RECENT EPISODES</span>
-              <div className="space-y-0.5">
-                {recentEpisodes.map(ep => {
-                  const podcast = podcastMap[ep.podcast_id]
-                  return (
-                    <Link
-                      key={ep.id}
-                      to={`/podcast/${ep.podcast_id}?episode=${ep.id}`}
-                      className="block p-2 rounded-lg transition-colors"
-                      style={{ color: 'inherit' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <p className="text-xs font-medium leading-snug truncate" style={{ color: 'var(--text-primary)' }}>
-                        {ep.title}
-                      </p>
-                      {podcast && (
-                        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-                          {podcast.title}
-                        </p>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Find Podcasts */}
+          {/* Find Podcasts — primary action, above manual URL entry */}
           <div>
             <div className="divider mb-4" />
             <span className="text-micro block mb-3" style={{ color: 'var(--text-muted)' }}>FIND PODCASTS</span>
@@ -458,7 +453,7 @@ function Home() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search keywords…"
+                placeholder="Search podcasts…"
                 className="input text-xs flex-1"
                 style={{ padding: '0.5rem 0.75rem' }}
               />
@@ -549,11 +544,120 @@ function Home() {
               </p>
             )}
           </div>
+
+          {/* Add by URL — secondary, below search */}
+          <div>
+            <div className="divider mb-4" />
+            {!showAddForm ? (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-500)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add by RSS or Apple Podcasts URL
+              </button>
+            ) : (
+              <form onSubmit={handleAddPodcast} className="space-y-2 animate-fade-in">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={feedUrl}
+                    onChange={handleFeedUrlChange}
+                    placeholder="RSS or Apple Podcasts URL…"
+                    className="input text-sm w-full"
+                    autoFocus
+                    disabled={addingPodcast}
+                  />
+                  {addSearchLoading && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <LoadingSpinner size="sm" />
+                    </div>
+                  )}
+                </div>
+                {addSearchResults.length > 0 && (
+                  <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-elevated)' }}>
+                    {addSearchResults.map(p => (
+                      <button
+                        key={p.itunes_id}
+                        type="button"
+                        onClick={() => handleAddFromSearch(p)}
+                        disabled={addingPodcast}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        {p.image_url
+                          ? <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                          : <div className="w-8 h-8 rounded shrink-0" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{p.title}</p>
+                          <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{p.artist}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" disabled={addingPodcast || !feedUrl.trim()} className="btn btn-primary text-sm flex-1">
+                    {addingPodcast ? <LoadingSpinner size="sm" /> : 'Add'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddForm(false); setFeedUrl(''); setAddSearchResults([]) }}
+                    className="btn btn-ghost text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Recent Episodes */}
+          {recentEpisodes.length > 0 && (
+            <div>
+              <div className="divider mb-3" />
+              <span className="text-micro block mb-2" style={{ color: 'var(--text-muted)' }}>RECENT EPISODES</span>
+              <div className="space-y-0.5">
+                {recentEpisodes.map(ep => {
+                  const podcast = podcastMap[ep.podcast_id]
+                  return (
+                    <Link
+                      key={ep.id}
+                      to={`/podcast/${ep.podcast_id}?episode=${ep.id}`}
+                      className="block p-2 rounded-lg transition-colors"
+                      style={{ color: 'inherit' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <p className="text-xs font-medium leading-snug truncate" style={{ color: 'var(--text-primary)' }}>
+                        {ep.title}
+                      </p>
+                      {podcast && (
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                          {podcast.title}
+                        </p>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
         </div>
       </aside>
 
       {/* ── CENTRE — digests ──────────────────────────────── */}
-      <div className="flex-1 min-w-0" style={{ backgroundColor: 'var(--bg-deep)' }}>
+      <div className="flex-1 min-w-0" style={{ backgroundColor: 'var(--bg-deep)', order: isMobile ? 2 : undefined }}>
         <div className="p-6 space-y-6" style={{ maxWidth: '820px' }}>
 
           {/* Error banner */}
@@ -609,7 +713,7 @@ function Home() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {displayedPrevious.map(digest => (
                   <DigestCard
                     key={digest.id}
@@ -628,13 +732,26 @@ function Home() {
       </div>
 
       {/* ── RIGHT SIDEBAR — analysis controls ─────────────── */}
-      <aside style={{
+      <aside style={isMobile ? {
+        order: 1,
+        width: '100%',
+        borderBottom: '1px solid var(--border-subtle)',
+        backgroundColor: 'var(--bg-secondary)',
+      } : {
         ...sidebarStyle,
         width: '252px',
         borderLeft: '1px solid var(--border-subtle)',
         backgroundColor: 'var(--bg-secondary)',
       }}>
-        <div className="p-4 space-y-4">
+        {isMobile && (
+          <button style={mobilePanelToggleStyle} onClick={() => setMobileCtrlOpen(o => !o)}>
+            <span className="text-micro">ANALYSIS CONTROLS</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)', transform: mobileCtrlOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        )}
+        <div className="p-4 space-y-4" style={isMobile && !mobileCtrlOpen ? { display: 'none' } : {}}>
 
           <span className="text-micro block pt-1" style={{ color: 'var(--text-muted)' }}>ANALYSIS</span>
 
