@@ -9,7 +9,9 @@ import logging
 from ..database import get_db
 from .. import models, schemas
 from ..services.feed_parser import FeedParser
-from ..services.digest import DigestService, ARTISTS
+import re
+import random
+from ..services.digest import DigestService, ARTISTS, TOPICS
 
 logger = logging.getLogger(__name__)
 
@@ -268,14 +270,33 @@ async def delete_podcast(podcast_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{podcast_id}/generate-artwork")
 async def generate_podcast_artwork(podcast_id: int, db: Session = Depends(get_db)):
-    """Generate a Banksy-style AI artwork for the podcast."""
+    """Generate AI artwork for the podcast using a random artist and topic, different from the last."""
     podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
 
-    banksy_name, banksy_style = next(a for a in ARTISTS if a[0] == "Banksy")
-    scene = (podcast.description or podcast.title)[:300].strip()
-    prompt = f"Painting in the style of {banksy_name}. {banksy_style}. Scene: {scene}. No text, no words, no letters."
+    # Avoid repeating the last artist
+    last_artist = None
+    if podcast.ai_image_prompt:
+        m = re.search(r'in the style of ([^.]+)\.', podcast.ai_image_prompt)
+        if m:
+            last_artist = m.group(1).strip()
+
+    available_artists = [a for a in ARTISTS if a[0] != last_artist]
+    artist_name, artist_style = random.choice(available_artists)
+
+    # Avoid repeating the last topic
+    last_topic = None
+    if podcast.ai_image_prompt:
+        m = re.search(r'Scene: (.+?)\. No text', podcast.ai_image_prompt, re.DOTALL)
+        if m:
+            last_topic = m.group(1).strip()
+
+    available_topics = [t for t in TOPICS if t != last_topic]
+    topic = random.choice(available_topics)
+
+    prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {topic}. No text, no words, no letters."
+    logger.info(f"Generating artwork: artist={artist_name}, topic={topic[:60]}...")
 
     service = DigestService()
     image_url = await service.generate_image_for_prompt(prompt)

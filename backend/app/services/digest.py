@@ -37,6 +37,39 @@ ARTISTS = [
     ("Kazimir Malevich", "Russian Suprematism, pure geometric forms floating on white ground, black and red squares and rectangles, absolute reduction to essential form, zero reference to the natural world"),
 ]
 
+TOPICS = [
+    "a lone figure at the edge of a vast server farm at dusk, cooling towers breathing steam into a violet sky",
+    "an ancient library where every book has been replaced by a glowing tablet, shelves stretching to infinity",
+    "a weathered radio tower on a hilltop broadcasting into a storm-lit horizon",
+    "a crowded city street where every billboard shows a different human face, and one face stares back",
+    "a deep-sea creature rising toward a distant pinpoint of light far above the dark surface",
+    "an empty amphitheatre at dawn, a single microphone standing at centre stage",
+    "a cartographer surrounded by floating map fragments that rearrange themselves endlessly",
+    "a greenhouse overgrown with vines that form words in an unreadable script",
+    "two figures on opposite sides of a chessboard, each perfectly reflected in the other",
+    "a shipwreck on a desert island, hull smothered in flowers, a flock of birds lifting off",
+    "a clockmaker's workshop where every clock shows a different time and all the gears spin backwards",
+    "a hot air balloon drifting over a patchwork of fields at golden hour, a tiny house far below",
+    "a frozen marketplace overflowing with ideas rendered as physical objects",
+    "a lighthouse keeper watching a vast geometric storm approach on the horizon",
+    "a tree growing inside a glass dome, roots pressing against the glass floor",
+    "a corridor of doors, each one slightly ajar, each revealing a different landscape",
+    "a mountain summit in fog, a folded newspaper and an empty coffee cup left on a rock",
+    "a cathedral interior transformed into a concert hall, sound waves visible as rippling stone arches",
+    "a child's bedroom at midnight, toys casting long shadows shaped like adult figures",
+    "a bridge under construction over an invisible river, workers suspended in mid-air",
+    "a desert observatory at night, every telescope aimed at the same star",
+    "a drained swimming pool revealing a mosaic portrait of a crowd on its floor",
+    "an arctic landscape with a single campfire, its light reaching impossibly far",
+    "a spiral staircase descending into clouds, each step a different shade of grey",
+    "a factory floor where machines are assembling other machines from parts of themselves",
+    "a vast auction house where abstract concepts are listed on numbered paddles",
+    "a rowing boat crossing a lake made entirely of still black mirror, perfect reflection below",
+    "a cinema showing a film to an audience of empty chairs, the screen blazing white",
+    "a botanist's notebook open on a table, pressed flowers escaping the pages and floating upward",
+    "a flooded underground station, commuters wading calmly through shin-deep water as trains still arrive",
+]
+
 
 
 @dataclass
