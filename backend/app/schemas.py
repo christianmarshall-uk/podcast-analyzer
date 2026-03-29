@@ -7,9 +7,9 @@ from enum import Enum
 class TimePeriod(str, Enum):
     LATEST = "latest"  # Most recent episode per podcast
     DAY = "day"
+    TWO_DAYS = "2days"
     WEEK = "week"
     TWO_WEEKS = "2weeks"
-    THREE_WEEKS = "3weeks"
     MONTH = "month"
     CUSTOM = "custom"
 
@@ -97,6 +97,8 @@ class PodcastUpdate(BaseModel):
 class Podcast(PodcastBase):
     id: int
     auto_analyze: bool = False
+    ai_image_url: Optional[str] = None
+    ai_image_prompt: Optional[str] = None
     created_at: datetime
     last_checked_at: Optional[datetime] = None
     episodes: list[Episode] = []
@@ -108,6 +110,7 @@ class Podcast(PodcastBase):
 class PodcastSummary(PodcastBase):
     id: int
     auto_analyze: bool = False
+    ai_image_url: Optional[str] = None
     created_at: datetime
     last_checked_at: Optional[datetime] = None
     episode_count: int = 0

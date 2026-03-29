@@ -12,6 +12,8 @@ class Podcast(Base):
     feed_url = Column(String, unique=True, nullable=False)
     description = Column(Text)
     image_url = Column(String)
+    ai_image_url = Column(String)    # AI-generated artwork
+    ai_image_prompt = Column(Text)   # Prompt used to generate it
     auto_analyze = Column(Boolean, default=False)  # Auto-analyze new episodes
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_checked_at = Column(DateTime(timezone=True))

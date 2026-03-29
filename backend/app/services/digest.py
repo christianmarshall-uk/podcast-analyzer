@@ -24,6 +24,7 @@ ARTISTS = [
     ("J.M.W. Turner", "Romantic sublime, atmosphere dissolving all solid forms into luminous vapour, golden apocalyptic light consuming the horizon, loose watercolour washes, barely legible forms emerging from radiant mist"),
     ("Roy Lichtenstein", "Bold black comic-strip outlines, Ben-Day dot pattern fills, flat primary colours, dramatic close-up cropping, graphic mechanical reproduction aesthetic, ironic pop art sensibility"),
     ("Edvard Munch", "Nordic expressionism, anxiety encoded in writhing undulating landscape lines, sickly green and blood-red sky, hollow-eyed figures, the horizon itself trembling with existential dread"),
+    ("Banksy", "Street stencil graffiti art, bold flat black spray-paint on rough concrete or brick walls, stark cut-out silhouettes, anti-establishment dark humour, guerrilla art aesthetic, weathered urban surfaces, high-contrast black shapes against exposed bare wall, subversive wit"),
     ("Georges Seurat", "Pointillist technique, entire image built from thousands of tiny pure-colour dots, shimmering optical colour mixing, scientific colour theory applied methodically, rigid formal composition"),
     ("Hieronymus Bosch", "Flemish Renaissance grotesque, teeming with impossible hybrid creatures, fantastical architectural structures, dense narrative detail in every corner, jewel-toned accents on earthy ground, medieval symbolism"),
     ("Frida Kahlo", "Mexican folk art fused with surrealism, flat decorative style, dense tropical foliage, bold botanical colour, symbolic objects charged with intense personal meaning, naive directness"),
@@ -35,6 +36,7 @@ ARTISTS = [
     ("Alphonse Mucha", "Czech Art Nouveau, flowing curvilinear botanical borders, pearl and rose palette, mosaic-like halos, ornate floral frame surrounding the central image, decorative flat linework"),
     ("Kazimir Malevich", "Russian Suprematism, pure geometric forms floating on white ground, black and red squares and rectangles, absolute reduction to essential form, zero reference to the natural world"),
 ]
+
 
 
 @dataclass

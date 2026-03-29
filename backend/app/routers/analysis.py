@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
+import asyncio
+import os
 
 from ..database import get_db
 from .. import models, schemas
@@ -14,6 +16,18 @@ router = APIRouter(prefix="/api", tags=["analysis"])
 # Shared Whisper model instance — loaded once to avoid expensive re-initialisation per episode
 _transcription_service = None
 
+# Semaphore: at most CPU_COUNT episodes process simultaneously.
+# Downloads + Claude calls are async I/O and proceed freely;
+# the thread pool inside TranscriptionService is the real CPU throttle.
+_CPU_COUNT = os.cpu_count() or 4
+_episode_semaphore: Optional[asyncio.Semaphore] = None
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _episode_semaphore
+    if _episode_semaphore is None:
+        _episode_semaphore = asyncio.Semaphore(_CPU_COUNT)
+    return _episode_semaphore
+
 
 def get_transcription_service() -> TranscriptionService:
     global _transcription_service
@@ -24,6 +38,11 @@ def get_transcription_service() -> TranscriptionService:
 
 async def process_episode(episode_id: int, db_session_factory):
     """Background task to process an episode with structured analysis."""
+    async with _get_semaphore():
+        await _do_process_episode(episode_id, db_session_factory)
+
+
+async def _do_process_episode(episode_id: int, db_session_factory):
     db = db_session_factory()
     try:
         episode = db.query(models.Episode).filter(models.Episode.id == episode_id).first()
@@ -167,14 +186,14 @@ def get_period_dates(period: schemas.TimePeriod, start_date=None, end_date=None)
     if period == schemas.TimePeriod.DAY:
         return now - timedelta(days=1), now
 
+    if period == schemas.TimePeriod.TWO_DAYS:
+        return now - timedelta(days=2), now
+
     if period == schemas.TimePeriod.WEEK:
         return now - timedelta(weeks=1), now
 
     if period == schemas.TimePeriod.TWO_WEEKS:
         return now - timedelta(weeks=2), now
-
-    if period == schemas.TimePeriod.THREE_WEEKS:
-        return now - timedelta(weeks=3), now
 
     if period == schemas.TimePeriod.MONTH:
         return now - timedelta(days=30), now

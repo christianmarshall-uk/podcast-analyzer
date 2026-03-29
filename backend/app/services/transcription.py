@@ -1,8 +1,17 @@
 import whisper
 import torch
+import asyncio
+import functools
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 import logging
+
+# Shared thread pool sized to CPU count — Whisper/PyTorch releases the GIL
+# during heavy compute, allowing genuine parallel transcription across cores.
+_CPU_COUNT = os.cpu_count() or 4
+_executor = ThreadPoolExecutor(max_workers=_CPU_COUNT, thread_name_prefix="whisper")
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +70,11 @@ class TranscriptionService:
         if language:
             options["language"] = language
 
-        result = self.model.transcribe(str(audio_path), **options)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            _executor,
+            functools.partial(self.model.transcribe, str(audio_path), **options)
+        )
         return result["text"]
 
     async def transcribe_with_timestamps(self, audio_path: str, language: Optional[str] = None) -> dict:
@@ -79,7 +92,11 @@ class TranscriptionService:
         if language:
             options["language"] = language
 
-        result = self.model.transcribe(str(audio_path), **options)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            _executor,
+            functools.partial(self.model.transcribe, str(audio_path), **options)
+        )
 
         return {
             "text": result["text"],

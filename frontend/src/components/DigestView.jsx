@@ -285,6 +285,24 @@ function DigestView({ digest }) {
               {digest.episode_count} episodes analysed
             </button>
           </div>
+          {digest.status === 'completed' && (
+            <button
+              onClick={handleRefreshImage}
+              disabled={refreshing}
+              className="mt-4 btn btn-secondary text-xs flex items-center gap-2 relative z-10"
+            >
+              {refreshing ? <LoadingSpinner size="sm" /> : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 2v4"/><path d="m19 9-3-3 3-3"/>
+                  <path d="M2 12a10 10 0 0 0 10 10"/><path d="M12 22v-4"/><path d="m5 15 3 3-3 3"/>
+                </svg>
+              )}
+              {refreshing ? 'Generating artwork…' : 'Generate artwork'}
+            </button>
+          )}
+          {refreshError && (
+            <p className="text-xs mt-2 relative z-10" style={{ color: 'var(--error)' }}>Artwork generation failed. Try again.</p>
+          )}
         </div>
       )}
 

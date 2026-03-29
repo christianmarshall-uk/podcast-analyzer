@@ -26,14 +26,14 @@ def get_period_dates(period: schemas.TimePeriod, start_date=None, end_date=None)
     if period == schemas.TimePeriod.DAY:
         return now - timedelta(days=1), now
 
+    if period == schemas.TimePeriod.TWO_DAYS:
+        return now - timedelta(days=2), now
+
     if period == schemas.TimePeriod.WEEK:
         return now - timedelta(weeks=1), now
 
     if period == schemas.TimePeriod.TWO_WEEKS:
         return now - timedelta(weeks=2), now
-
-    if period == schemas.TimePeriod.THREE_WEEKS:
-        return now - timedelta(weeks=3), now
 
     if period == schemas.TimePeriod.MONTH:
         return now - timedelta(days=30), now
@@ -182,9 +182,9 @@ async def create_digest(
         period_names = {
             schemas.TimePeriod.LATEST: "Latest",
             schemas.TimePeriod.DAY: "Daily",
+            schemas.TimePeriod.TWO_DAYS: "48h",
             schemas.TimePeriod.WEEK: "Weekly",
             schemas.TimePeriod.TWO_WEEKS: "Fortnightly",
-            schemas.TimePeriod.THREE_WEEKS: "3-Week",
             schemas.TimePeriod.MONTH: "Monthly",
             schemas.TimePeriod.CUSTOM: "Custom"
         }
@@ -304,12 +304,13 @@ async def regenerate_image(digest_id: int, db: Session = Depends(get_db)):
     digest = db.query(models.Digest).filter(models.Digest.id == digest_id).first()
     if not digest:
         raise HTTPException(status_code=404, detail="Digest not found")
-    if not digest.image_prompt:
-        raise HTTPException(status_code=400, detail="No image prompt available")
-
-    # Extract the scene description and rebuild the prompt with a fresh artist+style
-    scene_match = re.search(r'Scene:\s*(.+?)(?:\s*No text|$)', digest.image_prompt, re.DOTALL | re.IGNORECASE)
-    scene_desc = scene_match.group(1).strip() if scene_match else "an evocative landscape"
+    if digest.image_prompt:
+        scene_match = re.search(r'Scene:\s*(.+?)(?:\s*No text|$)', digest.image_prompt, re.DOTALL | re.IGNORECASE)
+        scene_desc = scene_match.group(1).strip() if scene_match else "an evocative landscape"
+    elif digest.summary:
+        scene_desc = digest.summary[:300].strip()
+    else:
+        scene_desc = "an evocative abstract landscape representing knowledge and ideas"
     artist_name, artist_style = random.choice(ARTISTS)
     new_prompt = f"Painting in the style of {artist_name}. {artist_style}. Scene: {scene_desc}. No text, no words, no letters."
 

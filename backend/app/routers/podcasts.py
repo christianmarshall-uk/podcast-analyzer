@@ -9,18 +9,46 @@ import logging
 from ..database import get_db
 from .. import models, schemas
 from ..services.feed_parser import FeedParser
+from ..services.digest import DigestService, ARTISTS
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/podcasts", tags=["podcasts"])
 
 
+async def _resolve_feed_url(url: str) -> str:
+    """If given an Apple Podcasts/iTunes URL, resolve it to the actual RSS feed URL."""
+    import re
+    if 'podcasts.apple.com' not in url and 'itunes.apple.com' not in url:
+        return url
+    match = re.search(r'/id(\d+)', url)
+    if not match:
+        return url
+    itunes_id = match.group(1)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(
+                'https://itunes.apple.com/lookup',
+                params={'id': itunes_id, 'entity': 'podcast'}
+            )
+            if resp.status_code == 200:
+                results = resp.json().get('results', [])
+                if results and results[0].get('feedUrl'):
+                    logger.info(f"Resolved Apple Podcasts URL {url} -> {results[0]['feedUrl']}")
+                    return results[0]['feedUrl']
+        except Exception as e:
+            logger.warning(f"Failed to resolve Apple Podcasts URL: {e}")
+    return url
+
+
 @router.post("/feed", response_model=schemas.Podcast, status_code=status.HTTP_201_CREATED)
 async def add_podcast_from_feed(feed_request: schemas.PodcastCreate, db: Session = Depends(get_db)):
     """Add a new podcast by parsing its RSS feed URL."""
+    resolved_url = await _resolve_feed_url(feed_request.feed_url)
+
     # Check if podcast already exists
     existing = db.query(models.Podcast).filter(
-        models.Podcast.feed_url == feed_request.feed_url
+        models.Podcast.feed_url == resolved_url
     ).first()
     if existing:
         raise HTTPException(
@@ -31,7 +59,7 @@ async def add_podcast_from_feed(feed_request: schemas.PodcastCreate, db: Session
     # Parse the feed
     parser = FeedParser()
     try:
-        parsed = parser.parse(feed_request.feed_url)
+        parsed = parser.parse(resolved_url)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -41,7 +69,7 @@ async def add_podcast_from_feed(feed_request: schemas.PodcastCreate, db: Session
     # Create podcast
     podcast = models.Podcast(
         title=parsed.title,
-        feed_url=feed_request.feed_url,
+        feed_url=resolved_url,
         description=parsed.description,
         image_url=parsed.image_url,
         auto_analyze=feed_request.auto_analyze,
@@ -236,6 +264,28 @@ async def delete_podcast(podcast_id: int, db: Session = Depends(get_db)):
     db.delete(podcast)
     db.commit()
     return None
+
+
+@router.post("/{podcast_id}/generate-artwork")
+async def generate_podcast_artwork(podcast_id: int, db: Session = Depends(get_db)):
+    """Generate a Banksy-style AI artwork for the podcast."""
+    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
+    if not podcast:
+        raise HTTPException(status_code=404, detail="Podcast not found")
+
+    banksy_name, banksy_style = next(a for a in ARTISTS if a[0] == "Banksy")
+    scene = (podcast.description or podcast.title)[:300].strip()
+    prompt = f"Painting in the style of {banksy_name}. {banksy_style}. Scene: {scene}. No text, no words, no letters."
+
+    service = DigestService()
+    image_url = await service.generate_image_for_prompt(prompt)
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Image generation failed")
+
+    podcast.ai_image_url = image_url
+    podcast.ai_image_prompt = prompt
+    db.commit()
+    return {"ai_image_url": image_url, "ai_image_prompt": prompt}
 
 
 @router.post("/{podcast_id}/refresh", response_model=schemas.Podcast)

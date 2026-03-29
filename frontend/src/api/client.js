@@ -36,6 +36,10 @@ export const podcastApi = {
   getEpisode: (podcastId, episodeId) =>
     api.get(`/podcasts/${podcastId}/episodes/${episodeId}`),
 
+  // Generate Banksy-style AI artwork for a podcast
+  generateArtwork: (id) =>
+    api.post(`/podcasts/${id}/generate-artwork`),
+
   // Discover similar podcasts via iTunes
   discover: () =>
     api.get('/podcasts/discover/similar'),

@@ -180,9 +180,9 @@ function BatchAnalysisForm({ podcasts, onComplete, compact = false }) {
   const periods = [
     { value: 'latest', label: 'Latest' },
     { value: 'day', label: '24h' },
+    { value: '2days', label: '48h' },
     { value: 'week', label: 'Week' },
     { value: '2weeks', label: '2 Weeks' },
-    { value: '3weeks', label: '3 Weeks' },
     { value: 'month', label: 'Month' }
   ]
 

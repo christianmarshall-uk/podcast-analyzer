@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from sqlalchemy import text
 from .database import engine, Base, get_db, SessionLocal
 from .routers import podcasts_router, analysis_router, digests_router
 from .services.scheduler import get_scheduler
@@ -16,6 +17,15 @@ logger = logging.getLogger(__name__)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Migrate: add any columns that may not exist in older DBs
+with engine.connect() as _conn:
+    for _col, _typ in [('ai_image_url', 'TEXT'), ('ai_image_prompt', 'TEXT')]:
+        try:
+            _conn.execute(text(f"ALTER TABLE podcasts ADD COLUMN {_col} {_typ}"))
+            _conn.commit()
+        except Exception:
+            pass  # Column already exists
 
 
 async def refresh_all_feeds():
